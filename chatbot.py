@@ -7,7 +7,6 @@ load_dotenv()
 # Try to get the API key from .env or Streamlit secrets
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", st.secrets.get("GROQ_API_KEY", None))
 
-from matplotlib.pyplot import show
 import tempfile
 import csv_agent, plotter
 
@@ -88,4 +87,5 @@ if user_input := st.chat_input("........"):
 #     temperature=0.7
 
 # )
+
 
