@@ -1,36 +1,37 @@
 import os
 from dotenv import load_dotenv
+import streamlit as st
+
+# Load environment variables from .env (for local development)
+load_dotenv()
+
+# Try to get the API key from .env or Streamlit secrets
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", st.secrets.get("GROQ_API_KEY", None))
+
 from langchain_groq import ChatGroq
 from matplotlib.pyplot import show
-import streamlit as st
 import tempfile
-import os
 import csv_agent, plotter
 
 st.set_page_config(layout="wide")
-
 st.title("🤖📊 CSV Agent Chatbot ")
-# If the Global variable is not created, create it once.
+
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
 
-# Parse through the Global and print the Chat History
 for chats in st.session_state.chat_history:
     with st.chat_message(chats["role"]):
         st.markdown(chats['content'])
-        if chats["role"]=="Assistant":
+        if chats["role"] == "Assistant":
             if chats['html_content'] != "":
                 with st.expander("📈📝 See explanation "):
                     st.components.v1.html(chats['html_content'], height=600, scrolling=True)
-
-
 
 st.sidebar.header("📁 Upload an CSV File ")
 uploaded_file = st.sidebar.file_uploader("", type=["csv"])
 temp_file_path = ''
 if uploaded_file is not None:
     try:
-        # Save to a temporary file to get a file path
         with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp_file:
             tmp_file.write(uploaded_file.read())
             temp_file_path = tmp_file.name
@@ -43,30 +44,27 @@ if uploaded_file is not None:
         st.sidebar.code("FAILED")
 
 if user_input := st.chat_input("........"):
-    # Print User Input
     with st.chat_message("User"):
         st.markdown(user_input)
-        # Store the User input in Streamlit Global
-        st.session_state.chat_history.append({"role":"User", "content": user_input})
+        st.session_state.chat_history.append({"role": "User", "content": user_input})
 
-    #################################### Agent invoking ########################################################
     if temp_file_path == '':
         with st.chat_message("Assistant"):
-            st.markdown("Please upload a .csv file for Q&A")
-            st.session_state.chat_history.append({"role":"Assistant", "content": "Please upload a .csv file for Q&A"})
+            st.markdown("Please upload a .csv file for Q&amp;A")
+            st.session_state.chat_history.append({"role": "Assistant", "content": "Please upload a .csv file for Q&amp;A"})
     else:
-        csv_agent_response      = csv_agent.csv_agent_invoker(temp_file_path, user_input)
-        html_content, response  = plotter.output_formatter(user_input, csv_agent_response)
-        
-        # Print Agent Response
+        # Pass the API key to csv_agent
+        csv_agent_response = csv_agent.csv_agent_invoker(temp_file_path, user_input, GROQ_API_KEY)
+        html_content, response = plotter.output_formatter(user_input, csv_agent_response)
+
         with st.chat_message("Assistant"):
             st.markdown(response)
             if html_content != "":
                 with st.expander("📈📝 See explanation "):
                     st.components.v1.html(html_content, height=600, scrolling=True)
-            
-            # Store the AI Response in Streamlit Global
-            st.session_state.chat_history.append({"role":"Assistant", "content": response, "html_content":html_content})
+
+            st.session_state.chat_history.append({"role": "Assistant", "content": response, "html_content": html_content})
+
         
 
 
@@ -89,4 +87,5 @@ if user_input := st.chat_input("........"):
 #     model_name=model2,
 #     api_key= groq_api_key,
 #     temperature=0.7
+
 # )
