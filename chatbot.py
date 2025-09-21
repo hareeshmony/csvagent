@@ -1,14 +1,12 @@
 import os
 from dotenv import load_dotenv
 import streamlit as st
-
 # Load environment variables from .env (for local development)
 load_dotenv()
 
 # Try to get the API key from .env or Streamlit secrets
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", st.secrets.get("GROQ_API_KEY", None))
 
-from langchain_groq import ChatGroq
 from matplotlib.pyplot import show
 import tempfile
 import csv_agent, plotter
@@ -23,7 +21,7 @@ for chats in st.session_state.chat_history:
     with st.chat_message(chats["role"]):
         st.markdown(chats['content'])
         if chats["role"] == "Assistant":
-            if chats['html_content'] != "":
+            if chats.get('html_content', "") != "":
                 with st.expander("📈📝 See explanation "):
                     st.components.v1.html(chats['html_content'], height=600, scrolling=True)
 
@@ -65,6 +63,7 @@ if user_input := st.chat_input("........"):
 
             st.session_state.chat_history.append({"role": "Assistant", "content": response, "html_content": html_content})
 
+
         
 
 
@@ -89,3 +88,4 @@ if user_input := st.chat_input("........"):
 #     temperature=0.7
 
 # )
+
