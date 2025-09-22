@@ -1,4 +1,4 @@
-import matplotlib.pyplot as plt
+
 import plotly.express as px
 import pandas as pd
 
@@ -76,3 +76,4 @@ if user_input := st.chat_input("........"):
                         st.components.v1.html(html_content, height=600, scrolling=True)
 
                 st.session_state.chat_history.append({"role": "Assistant", "content": response, "html_content": html_content})
+
