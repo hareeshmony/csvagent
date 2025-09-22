@@ -1,150 +1,59 @@
-import os
-import json
-from groq import Groq
-from pydantic import BaseModel, Field, ValidationError # pip install pydantic
-from typing import List
+import streamlit as st
+import pandas as pd
+import matplotlib.pyplot as plt
+import plotly.express as px
 
-client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+st.title("CSV Data Visualizer")
 
-# Define a schema with Pydantic (Python's equivalent to Zod)
-class Product(BaseModel):
-    html_content: str
-    summary: str
-    
-# Prompt design is critical for structured outputs
-system_prompt = """
-You are a data summary & data visualizing expert. You will be shown the Users question & the csv agent's output, \
-You should summarize the agents results and also plot the data with a suitable plot technique via HTML format doc content.
-html_content --> used for either plots or tables, default value is ""
-summary --> used for summarizing the result in a report fashion
-Note: always respond with valid JSON objects that match this complete HTML structure while plotting
-If the data is Not plottable, return default empty str as output in place of html_content.
-Example:
-{
-  "html_content": "
-  <!DOCTYPE html>
-<html>
-<head>
-  <title>Category Data Visualization</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-    }
+# File uploader for CSV files
+uploaded_file = st.file_uploader("Upload a CSV file", type="csv")
 
-    .container {
-      display: flex;
-      gap: 40px;
-      align-items: flex-start;
-    }
+if uploaded_file:
+    try:
+        # Read the uploaded CSV file
+        df = pd.read_csv(uploaded_file)
 
-    table {
-      border-collapse: collapse;
-      width: 300px;
-    }
+        # Display the first few rows of the dataframe
+        st.subheader("Preview of Uploaded Data")
+        st.dataframe(df.head())
 
-    th, td {
-      border: 1px solid #ccc;
-      padding: 12px;
-      text-align: center;
-    }
+        # Select column for grouping
+        group_column = st.selectbox("Select column to group by", df.columns)
 
-    th {
-      background-color: #f4f4f4;
-    }
+        # Select column for aggregation
+        numeric_columns = df.select_dtypes(include='number').columns.tolist()
+        agg_column = st.selectbox("Select numeric column to aggregate", numeric_columns)
 
-    .chart-container {
-      width: 400px;
-    }
-  </style>
-</head>
-<body>
+        if group_column and agg_column:
+            # Group and aggregate the data
+            summary_df = df.groupby(group_column)[agg_column].sum().reset_index()
 
-  <h2>Category Distribution</h2>
+            # Display the summary table
+            st.subheader("Summary Table")
+            st.dataframe(summary_df)
 
-  <div class="container">
-    <!-- Table -->
-    <table>
-      <thead>
-        <tr>
-          <th>Category</th>
-          <th>Percentage</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Category 1</td>
-          <td>20%</td>
-        </tr>
-        <tr>
-          <td>Category 2</td>
-          <td>80%</td>
-        </tr>
-      </tbody>
-    </table>
+            # Plot using Matplotlib
+            st.subheader("Matplotlib Visualization")
+            fig, ax = plt.subplots(figsize=(8, 4))
+            ax.bar(summary_df[group_column], summary_df[agg_column], color='skyblue')
+            ax.set_xlabel(group_column)
+            ax.set_ylabel(f"Total {agg_column}")
+            ax.set_title(f"{agg_column} by {group_column}")
+            plt.xticks(rotation=45)
+            st.pyplot(fig)
 
-    <!-- Pie Chart -->
-    <div class="chart-container">
-      <canvas id="categoryChart"></canvas>
-    </div>
-  </div>
+            # Plot using Plotly
+            st.subheader("Plotly Visualization")
+            fig_plotly = px.bar(
+                summary_df, 
+                x=group_column, 
+                y=agg_column,
+                title=f"{agg_column} by {group_column}",
+                labels={group_column: group_column, agg_column: f"Total {agg_column}"}
+            )
+            st.plotly_chart(fig_plotly)
 
-  <script>
-    const ctx = document.getElementById('categoryChart').getContext('2d');
-    const categoryChart = new Chart(ctx, {
-      type: 'pie',
-      data: {
-        labels: ['Category 1', 'Category 2'],
-        datasets: [{
-          label: 'Category Distribution',
-          data: [20, 80],
-          backgroundColor: ['#4e79a7', '#f28e2b']
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            position: 'bottom'
-          }
-        }
-      }
-    });
-  </script>
-
-</body>
-</html>
-
-",
-  "summary": 
-  "Category 1 accounts for 20% of the total.
-   Category 2 dominates with 80% of the total."
-}
-Your response should ONLY contain the JSON object and nothing else.
-"""
-
-def output_formatter(user_question, csv_agent_response):
-  # Request structured data from the model
-  completion = client.chat.completions.create(
-      model="llama-3.3-70b-versatile",
-      response_format={"type": "json_object"},
-      messages=[
-          {"role": "system", "content": system_prompt},
-          {"role": "user", "content": f" user question: {user_question},\ncsv agent output:{csv_agent_response}"}
-      ]
-  )
-
-  # Extract and validate the response
-  try:
-      response_content = completion.choices[0].message.content
-      json_data        = json.loads(response_content)
-      product          = Product(**json_data)
-      print("Validation successful! Structured data:", json_data)
-      print("\nPlot Validation successful!")
-
-      return product.html_content, product.summary
-  except json.JSONDecodeError:
-      print("Error: The model did not return valid JSON")
-  except ValidationError as e:
-      print(f"Error: The JSON did not match the expected schema: {e}") 
+    except Exception as e:
+        st.error(f"An error occurred while processing the file: {e}")
+else:
+    st.info("Please upload a CSV file to begin.")
