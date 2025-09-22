@@ -4,4 +4,5 @@ langchain_experimental
 groq
 langchain_groq
 tabulate
-streamlit
+
+streamlit>=1.22.0
